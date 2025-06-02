@@ -1,0 +1,1040 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bridge Finding Algorithm Visualizer</title>
+    <base target="_self">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@preline/preline@2.0.0/dist/preline.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .graph-container {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            position: relative;
+            overflow: hidden;
+            background-color: #f8fafc;
+        }
+        
+        .vertex {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #3b82f6;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+        
+        .vertex.highlighted {
+            background-color: #ef4444;
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
+        }
+        
+        .vertex.visited {
+            background-color: #10b981;
+        }
+        
+        .vertex.current {
+            background-color: #f59e0b;
+            transform: scale(1.2);
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.7);
+        }
+        
+        .edge {
+            position: absolute;
+            height: 2px;
+            background-color: #64748b;
+            transform-origin: 0 0;
+            z-index: 5;
+        }
+        
+        .edge.highlighted {
+            background-color: #ef4444;
+            height: 3px;
+            box-shadow: 0 0 5px rgba(239, 68, 68, 0.7);
+        }
+        
+        .edge.bridge {
+            background-color: #ef4444;
+            height: 3px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .edge-label {
+            position: absolute;
+            background-color: rgb(0, 0, 0);
+            padding: 0 4px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 6;
+        }
+        
+        .status-bar {
+            min-height: 60px;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            background-color: #000000;
+            font-family: monospace;
+        }
+        
+        .slider-container {
+            width: 100%;
+            max-width: 200px;
+        }
+        
+        .slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #d1d5db;
+            outline: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-center">Bridge Finding Algorithm Visualizer</h1>
+            <p class="text-center text-gray-600 dark:text-gray-400 mt-2">
+                Visualize how bridges in undirected graphs are found using different algorithms
+            </p>
+        </header>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left sidebar - Controls and information -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <h2 class="text-xl font-semibold mb-4">Algorithm Selection</h2>
+                    
+                    <div class="space-y-3">
+                        <div class="flex items-center">
+                            <input type="radio" id="naive" name="algorithm" value="naive" class="h-4 w-4 text-blue-600 focus:ring-blue-500" checked>
+                            <label for="naive" class="ml-2 block text-sm font-medium">Naïve Algorithm (BFS-based)</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="radio" id="tarjan" name="algorithm" value="tarjan" class="h-4 w-4 text-blue-600 focus:ring-blue-500">
+                            <label for="tarjan" class="ml-2 block text-sm font-medium">Tarjan's Algorithm (DFS-based)</label>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6">
+                        <h2 class="text-xl font-semibold mb-4">Graph Controls</h2>
+                        
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <button id="add-vertex" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded transition">
+                                <i class="fas fa-plus-circle mr-2"></i>Add Vertex
+                            </button>
+                            <button id="add-edge" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded transition">
+                                <i class="fas fa-link mr-2"></i>Add Edge
+                            </button>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-1">Preset Graphs</label>
+                            <select id="preset-graph" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Select a preset...</option>
+                                <option value="simple">Simple Graph (3 vertices)</option>
+                                <option value="bridge">Graph with Bridge</option>
+                                <option value="complex">Complex Graph</option>
+                                <option value="tree">Tree Structure</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <button id="clear-graph" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded transition">
+                                <i class="fas fa-trash-alt mr-2"></i>Clear Graph
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <h2 class="text-xl font-semibold mb-4">Algorithm Explanation</h2>
+                    <div id="algorithm-explanation" class="text-sm">
+                        <div id="naive-explanation">
+                            <p class="mb-2"><strong>Naïve Algorithm:</strong></p>
+                            <ol class="list-decimal pl-5 space-y-1">
+                                <li>For each edge in the graph, temporarily remove it</li>
+                                <li>Perform BFS from one of the edge's vertices</li>
+                                <li>If the other vertex becomes unreachable, the edge is a bridge</li>
+                                <li>Restore the edge and continue to the next one</li>
+                            </ol>
+                            <p class="mt-2">Time complexity: O(E*(V+E))</p>
+                        </div>
+                        <div id="tarjan-explanation" class="hidden">
+                            <p class="mb-2"><strong>Tarjan's Algorithm:</strong></p>
+                            <ol class="list-decimal pl-5 space-y-1">
+                                <li>Perform DFS traversal of the graph</li>
+                                <li>Track discovery time and low value for each vertex</li>
+                                <li>For every edge u-v, if low[v] > disc[u], then u-v is a bridge</li>
+                            </ol>
+                            <p class="mt-2">Time complexity: O(V+E)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main graph visualization area -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold">Graph Visualization</h2>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm">Mode:</span>
+                            <span id="current-mode" class="font-medium">View</span>
+                        </div>
+                    </div>
+                    
+                    <div class="graph-container" id="graph-container">
+                        <!-- Graph elements will be added here dynamically -->
+                    </div>
+                </div>
+                
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <h2 class="text-xl font-semibold mb-4">Algorithm Controls</h2>
+                    
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex space-x-2">
+                            <button id="start-btn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded transition">
+                                <i class="fas fa-play mr-2"></i>Start
+                            </button>
+                            <button id="pause-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded transition hidden">
+                                <i class="fas fa-pause mr-2"></i>Pause
+                            </button>
+                            <button id="step-btn" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded transition">
+                                <i class="fas fa-step-forward mr-2"></i>Step
+                            </button>
+                            <button id="reset-btn" class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded transition">
+                                <i class="fas fa-redo mr-2"></i>Reset
+                            </button>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4">
+                            <div class="slider-container">
+                                <label class="block text-sm font-medium mb-1">Animation Speed</label>
+                                <input type="range" min="100" max="2000" value="500" step="100" class="slider" id="speed-slider">
+                                <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                    <span>Slow</span>
+                                    <span>Fast</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <div class="status-bar" id="status-bar">
+                            <p class="text-gray-500 italic">Select an algorithm and click Start to begin visualization...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Graph state
+            const state = {
+                vertices: [],
+                edges: [],
+                adjacencyList: {},
+                nextVertexId: 1,
+                mode: 'view', // 'view', 'add-vertex', 'add-edge'
+                edgeStart: null,
+                isRunning: false,
+                isPaused: false,
+                currentAlgorithm: 'naive',
+                animationSpeed: 500,
+                animationTimeout: null,
+                algorithmState: null
+            };
+            
+            // DOM elements
+            const graphContainer = document.getElementById('graph-container');
+            const addVertexBtn = document.getElementById('add-vertex');
+            const addEdgeBtn = document.getElementById('add-edge');
+            const clearGraphBtn = document.getElementById('clear-graph');
+            const presetGraphSelect = document.getElementById('preset-graph');
+            const startBtn = document.getElementById('start-btn');
+            const pauseBtn = document.getElementById('pause-btn');
+            const stepBtn = document.getElementById('step-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const speedSlider = document.getElementById('speed-slider');
+            const statusBar = document.getElementById('status-bar');
+            const currentModeSpan = document.getElementById('current-mode');
+            const algorithmRadios = document.querySelectorAll('input[name="algorithm"]');
+            const naiveExplanation = document.getElementById('naive-explanation');
+            const tarjanExplanation = document.getElementById('tarjan-explanation');
+            
+            // Event listeners
+            addVertexBtn.addEventListener('click', () => setMode('add-vertex'));
+            addEdgeBtn.addEventListener('click', () => setMode('add-edge'));
+            clearGraphBtn.addEventListener('click', clearGraph);
+            presetGraphSelect.addEventListener('change', handlePresetSelect);
+            startBtn.addEventListener('click', startAlgorithm);
+            pauseBtn.addEventListener('click', pauseAlgorithm);
+            stepBtn.addEventListener('click', stepAlgorithm);
+            resetBtn.addEventListener('click', resetAlgorithm);
+            speedSlider.addEventListener('input', updateAnimationSpeed);
+            
+            algorithmRadios.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    state.currentAlgorithm = radio.value;
+                    if (state.currentAlgorithm === 'naive') {
+                        naiveExplanation.classList.remove('hidden');
+                        tarjanExplanation.classList.add('hidden');
+                    } else {
+                        naiveExplanation.classList.add('hidden');
+                        tarjanExplanation.classList.remove('hidden');
+                    }
+                });
+            });
+            
+            graphContainer.addEventListener('click', handleGraphClick);
+            
+            // Initialize with a simple graph
+            loadPresetGraph('simple');
+            
+            // Functions
+            function setMode(mode) {
+                state.mode = mode;
+                currentModeSpan.textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+                
+                // Reset edge start if switching from add-edge mode
+                if (mode !== 'add-edge' && state.edgeStart) {
+                    const vertexElement = document.querySelector(`.vertex[data-id="${state.edgeStart}"]`);
+                    if (vertexElement) {
+                        vertexElement.classList.remove('highlighted');
+                    }
+                    state.edgeStart = null;
+                }
+                
+                updateStatus(`Mode set to ${mode}. ${mode === 'add-vertex' ? 'Click on the graph to add a vertex.' : mode === 'add-edge' ? 'Click on two vertices to connect them.' : ''}`);
+            }
+            
+            function handleGraphClick(event) {
+                if (state.mode === 'add-vertex') {
+                    addVertex(event);
+                } else if (state.mode === 'add-edge') {
+                    addEdge(event);
+                }
+            }
+            
+            function addVertex(event) {
+                // Get click position relative to graph container
+                const rect = graphContainer.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                
+                // Create new vertex
+                const vertexId = state.nextVertexId++;
+                const vertex = {
+                    id: vertexId,
+                    x: x,
+                    y: y,
+                    label: String.fromCharCode(64 + vertexId) // A, B, C, ...
+                };
+                
+                state.vertices.push(vertex);
+                state.adjacencyList[vertexId] = [];
+                
+                renderVertex(vertex);
+                updateStatus(`Added vertex ${vertex.label} at (${Math.round(x)}, ${Math.round(y)})`);
+            }
+            
+            function addEdge(event) {
+                // Find if a vertex was clicked
+                const vertexElement = event.target.closest('.vertex');
+                if (!vertexElement) return;
+                
+                const vertexId = parseInt(vertexElement.dataset.id);
+                
+                if (!state.edgeStart) {
+                    // First vertex selected
+                    state.edgeStart = vertexId;
+                    vertexElement.classList.add('highlighted');
+                    updateStatus(`Selected vertex ${getVertexLabel(vertexId)}. Now click another vertex to connect them.`);
+                } else if (state.edgeStart === vertexId) {
+                    // Clicked the same vertex
+                    vertexElement.classList.remove('highlighted');
+                    state.edgeStart = null;
+                    updateStatus('Edge creation canceled.');
+                } else {
+                    // Second vertex selected - create edge
+                    const vertex1 = state.edgeStart;
+                    const vertex2 = vertexId;
+                    
+                    // Check if edge already exists
+                    if (!edgeExists(vertex1, vertex2)) {
+                        const edge = {
+                            v1: vertex1,
+                            v2: vertex2,
+                            id: `${vertex1}-${vertex2}`
+                        };
+                        
+                        state.edges.push(edge);
+                        state.adjacencyList[vertex1].push(vertex2);
+                        state.adjacencyList[vertex2].push(vertex1);
+                        
+                        renderEdge(edge);
+                        updateStatus(`Added edge between ${getVertexLabel(vertex1)} and ${getVertexLabel(vertex2)}`);
+                    } else {
+                        updateStatus(`Edge between ${getVertexLabel(vertex1)} and ${getVertexLabel(vertex2)} already exists.`);
+                    }
+                    
+                    // Reset edge creation
+                    document.querySelector(`.vertex[data-id="${state.edgeStart}"]`).classList.remove('highlighted');
+                    state.edgeStart = null;
+                }
+            }
+            
+            function edgeExists(v1, v2) {
+                return state.edges.some(edge => 
+                    (edge.v1 === v1 && edge.v2 === v2) || 
+                    (edge.v1 === v2 && edge.v2 === v1)
+                );
+            }
+            
+            function getVertexLabel(vertexId) {
+                const vertex = state.vertices.find(v => v.id === vertexId);
+                return vertex ? vertex.label : '?';
+            }
+            
+            function renderVertex(vertex) {
+                const vertexElement = document.createElement('div');
+                vertexElement.className = 'vertex';
+                vertexElement.dataset.id = vertex.id;
+                vertexElement.style.left = `${vertex.x - 20}px`;
+                vertexElement.style.top = `${vertex.y - 20}px`;
+                vertexElement.textContent = vertex.label;
+                
+                graphContainer.appendChild(vertexElement);
+            }
+            
+            function renderEdge(edge) {
+                const v1 = state.vertices.find(v => v.id === edge.v1);
+                const v2 = state.vertices.find(v => v.id === edge.v2);
+                
+                if (!v1 || !v2) return;
+                
+                // Calculate edge position and angle
+                const x1 = v1.x;
+                const y1 = v1.y;
+                const x2 = v2.x;
+                const y2 = v2.y;
+                
+                const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+                const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+                
+                // Create edge element
+                const edgeElement = document.createElement('div');
+                edgeElement.className = 'edge';
+                edgeElement.dataset.id = edge.id;
+                edgeElement.style.left = `${x1}px`;
+                edgeElement.style.top = `${y1}px`;
+                edgeElement.style.width = `${length}px`;
+                edgeElement.style.transform = `rotate(${angle}deg)`;
+                
+                // Create edge label (optional)
+                const edgeLabel = document.createElement('div');
+                edgeLabel.className = 'edge-label';
+                edgeLabel.textContent = `${v1.label}-${v2.label}`;
+                edgeLabel.style.left = `${(x1 + x2) / 2 - 15}px`;
+                edgeLabel.style.top = `${(y1 + y2) / 2 - 10}px`;
+                
+                graphContainer.appendChild(edgeElement);
+                graphContainer.appendChild(edgeLabel);
+            }
+            
+            function clearGraph() {
+                state.vertices = [];
+                state.edges = [];
+                state.adjacencyList = {};
+                state.nextVertexId = 1;
+                state.edgeStart = null;
+                
+                // Clear all graph elements
+                while (graphContainer.firstChild) {
+                    graphContainer.removeChild(graphContainer.firstChild);
+                }
+                
+                // Reset algorithm state
+                resetAlgorithm();
+                
+                updateStatus('Graph cleared.');
+            }
+            
+            function handlePresetSelect(event) {
+                const preset = event.target.value;
+                if (preset) {
+                    loadPresetGraph(preset);
+                    updateStatus(`Loaded ${preset} preset graph.`);
+                }
+            }
+            
+            function loadPresetGraph(preset) {
+                clearGraph();
+                
+                switch (preset) {
+                    case 'simple':
+                        // Simple 3-vertex graph
+                        addPresetVertex(150, 150, 'A');
+                        addPresetVertex(300, 150, 'B');
+                        addPresetVertex(225, 250, 'C');
+                        addPresetEdge(1, 2);
+                        addPresetEdge(2, 3);
+                        break;
+                        
+                    case 'bridge':
+                        // Graph with a bridge
+                        addPresetVertex(150, 150, 'A');
+                        addPresetVertex(300, 150, 'B');
+                        addPresetVertex(450, 150, 'C');
+                        addPresetVertex(300, 300, 'D');
+                        addPresetEdge(1, 2);
+                        addPresetEdge(2, 3);
+                        addPresetEdge(2, 4);
+                        break;
+                        
+                    case 'complex':
+                        // More complex graph
+                        addPresetVertex(150, 150, 'A');
+                        addPresetVertex(300, 100, 'B');
+                        addPresetVertex(450, 150, 'C');
+                        addPresetVertex(300, 250, 'D');
+                        addPresetVertex(150, 350, 'E');
+                        addPresetVertex(450, 350, 'F');
+                        addPresetEdge(1, 2);
+                        addPresetEdge(2, 3);
+                        addPresetEdge(1, 4);
+                        addPresetEdge(2, 4);
+                        addPresetEdge(3, 4);
+                        addPresetEdge(4, 5);
+                        addPresetEdge(4, 6);
+                        addPresetEdge(5, 6);
+                        break;
+                        
+                    case 'tree':
+                        // Tree structure
+                        addPresetVertex(300, 50, 'A');
+                        addPresetVertex(200, 150, 'B');
+                        addPresetVertex(400, 150, 'C');
+                        addPresetVertex(150, 250, 'D');
+                        addPresetVertex(250, 250, 'E');
+                        addPresetVertex(350, 250, 'F');
+                        addPresetVertex(450, 250, 'G');
+                        addPresetEdge(1, 2);
+                        addPresetEdge(1, 3);
+                        addPresetEdge(2, 4);
+                        addPresetEdge(2, 5);
+                        addPresetEdge(3, 6);
+                        addPresetEdge(3, 7);
+                        break;
+                }
+                
+                // Reset the select to default
+                presetGraphSelect.value = '';
+            }
+            
+            function addPresetVertex(x, y, label) {
+                const vertexId = state.nextVertexId++;
+                const vertex = {
+                    id: vertexId,
+                    x: x,
+                    y: y,
+                    label: label
+                };
+                
+                state.vertices.push(vertex);
+                state.adjacencyList[vertexId] = [];
+                renderVertex(vertex);
+            }
+            
+            function addPresetEdge(v1, v2) {
+                const edge = {
+                    v1: v1,
+                    v2: v2,
+                    id: `${v1}-${v2}`
+                };
+                
+                state.edges.push(edge);
+                state.adjacencyList[v1].push(v2);
+                state.adjacencyList[v2].push(v1);
+                renderEdge(edge);
+            }
+            
+            function startAlgorithm() {
+                if (state.isRunning) return;
+                
+                if (state.vertices.length === 0) {
+                    updateStatus('Error: Graph is empty. Add some vertices and edges first.');
+                    return;
+                }
+                
+                state.isRunning = true;
+                state.isPaused = false;
+                startBtn.classList.add('hidden');
+                pauseBtn.classList.remove('hidden');
+                stepBtn.disabled = true;
+                
+                // Initialize algorithm state
+                if (state.currentAlgorithm === 'naive') {
+                    initNaiveAlgorithm();
+                } else {
+                    initTarjanAlgorithm();
+                }
+                
+                // Start the algorithm
+                runAlgorithmStep();
+            }
+            
+            function pauseAlgorithm() {
+                if (!state.isRunning) return;
+                
+                state.isPaused = true;
+                pauseBtn.classList.add('hidden');
+                startBtn.classList.remove('hidden');
+                stepBtn.disabled = false;
+                
+                // Clear any pending animation
+                if (state.animationTimeout) {
+                    clearTimeout(state.animationTimeout);
+                    state.animationTimeout = null;
+                }
+                
+                updateStatus('Algorithm paused. Click Step to advance or Start to continue.');
+            }
+            
+            function stepAlgorithm() {
+                if (!state.isRunning || !state.isPaused) return;
+                
+                runAlgorithmStep();
+            }
+            
+            function resetAlgorithm() {
+                // Clear any running algorithm
+                state.isRunning = false;
+                state.isPaused = false;
+                state.algorithmState = null;
+                
+                if (state.animationTimeout) {
+                    clearTimeout(state.animationTimeout);
+                    state.animationTimeout = null;
+                }
+                
+                // Reset UI
+                startBtn.classList.remove('hidden');
+                pauseBtn.classList.add('hidden');
+                stepBtn.disabled = false;
+                
+                // Reset vertex and edge styles
+                document.querySelectorAll('.vertex').forEach(v => {
+                    v.classList.remove('visited', 'current', 'highlighted');
+                });
+                
+                document.querySelectorAll('.edge').forEach(e => {
+                    e.classList.remove('highlighted', 'bridge');
+                });
+                
+                updateStatus('Algorithm reset. Ready to start again.');
+            }
+            
+            function updateAnimationSpeed() {
+                state.animationSpeed = 2100 - speedSlider.value; // Invert so slider right is faster
+            }
+            
+            function updateStatus(message) {
+                statusBar.innerHTML = `<p>${message}</p>`;
+            }
+            
+            // Naïve Algorithm Implementation
+            function initNaiveAlgorithm() {
+                state.algorithmState = {
+                    step: 'init',
+                    currentEdgeIndex: 0,
+                    bridges: [],
+                    tempRemovedEdge: null,
+                    bfsState: null
+                };
+                
+                updateStatus('Initializing naïve bridge finding algorithm...');
+            }
+            
+            // Tarjan's Algorithm Implementation
+            function initTarjanAlgorithm() {
+                state.algorithmState = {
+                    step: 'init',
+                    time: 0,
+                    discovery: {},
+                    low: {},
+                    parent: {},
+                    bridges: [],
+                    dfsStack: [],
+                    currentVertex: null,
+                    visited: new Set()
+                };
+                
+                updateStatus('Initializing Tarjan\'s bridge finding algorithm...');
+            }
+            
+            function runAlgorithmStep() {
+                if (!state.isRunning) return;
+                
+                if (state.currentAlgorithm === 'naive') {
+                    runNaiveAlgorithmStep();
+                } else {
+                    runTarjanAlgorithmStep();
+                }
+            }
+            
+            function runNaiveAlgorithmStep() {
+                const algoState = state.algorithmState;
+                
+                switch (algoState.step) {
+                    case 'init':
+                        // Start with the first edge
+                        algoState.currentEdgeIndex = 0;
+                        algoState.step = 'check-edge';
+                        updateStatus('Starting to check edges for bridges...');
+                        scheduleNextStep();
+                        break;
+                        
+                    case 'check-edge':
+                        if (algoState.currentEdgeIndex >= state.edges.length) {
+                            // Algorithm complete
+                            algoState.step = 'complete';
+                            updateStatus(`Algorithm complete. Found ${algoState.bridges.length} bridge(s): ${algoState.bridges.map(e => `${getVertexLabel(e.v1)}-${getVertexLabel(e.v2)}`).join(', ')}`);
+                            
+                            // Highlight all bridges
+                            algoState.bridges.forEach(bridge => {
+                                const edgeElement = document.querySelector(`.edge[data-id="${bridge.id}"]`);
+                                if (edgeElement) {
+                                    edgeElement.classList.add('bridge');
+                                }
+                            });
+                            
+                            state.isRunning = false;
+                            startBtn.classList.remove('hidden');
+                            pauseBtn.classList.add('hidden');
+                            return;
+                        }
+                        
+                        const currentEdge = state.edges[algoState.currentEdgeIndex];
+                        algoState.tempRemovedEdge = currentEdge;
+                        
+                        // Highlight the edge being checked
+                        document.querySelectorAll('.edge').forEach(e => e.classList.remove('highlighted'));
+                        const edgeElement = document.querySelector(`.edge[data-id="${currentEdge.id}"]`);
+                        if (edgeElement) {
+                            edgeElement.classList.add('highlighted');
+                        }
+                        
+                        updateStatus(`Checking if edge ${getVertexLabel(currentEdge.v1)}-${getVertexLabel(currentEdge.v2)} is a bridge...`);
+                        algoState.step = 'remove-edge';
+                        scheduleNextStep();
+                        break;
+                        
+                    case 'remove-edge':
+                        // "Remove" the edge by temporarily excluding it from the adjacency list
+                        const edge = algoState.tempRemovedEdge;
+                        const v1 = edge.v1;
+                        const v2 = edge.v2;
+                        
+                        // Remove the edge from adjacency lists (temporarily)
+                        state.adjacencyList[v1] = state.adjacencyList[v1].filter(v => v !== v2);
+                        state.adjacencyList[v2] = state.adjacencyList[v2].filter(v => v !== v1);
+                        
+                        // Initialize BFS
+                        algoState.bfsState = {
+                            queue: [v1],
+                            visited: new Set([v1]),
+                            found: false
+                        };
+                        
+                        updateStatus(`Temporarily removed edge ${getVertexLabel(v1)}-${getVertexLabel(v2)}. Starting BFS from ${getVertexLabel(v1)}...`);
+                        algoState.step = 'bfs';
+                        scheduleNextStep();
+                        break;
+                        
+                    case 'bfs':
+                        const bfsState = algoState.bfsState;
+                        
+                        if (bfsState.queue.length === 0) {
+                            // BFS complete
+                            if (!bfsState.found) {
+                                // Edge is a bridge
+                                algoState.bridges.push(algoState.tempRemovedEdge);
+                                updateStatus(`Edge ${getVertexLabel(algoState.tempRemovedEdge.v1)}-${getVertexLabel(algoState.tempRemovedEdge.v2)} is a bridge!`);
+                            } else {
+                                updateStatus(`Edge ${getVertexLabel(algoState.tempRemovedEdge.v1)}-${getVertexLabel(algoState.tempRemovedEdge.v2)} is not a bridge.`);
+                            }
+                            
+                            // Restore the edge
+                            const edge = algoState.tempRemovedEdge;
+                            state.adjacencyList[edge.v1].push(edge.v2);
+                            state.adjacencyList[edge.v2].push(edge.v1);
+                            
+                            // Reset vertex highlights
+                            document.querySelectorAll('.vertex').forEach(v => {
+                                v.classList.remove('visited', 'current');
+                            });
+                            
+                            // Move to next edge
+                            algoState.currentEdgeIndex++;
+                            algoState.step = 'check-edge';
+                            scheduleNextStep();
+                            return;
+                        }
+                        
+                        // Process next vertex in BFS
+                        const currentVertex = bfsState.queue.shift();
+                        const vertexElement = document.querySelector(`.vertex[data-id="${currentVertex}"]`);
+                        if (vertexElement) {
+                            vertexElement.classList.add('visited');
+                            vertexElement.classList.add('current');
+                            
+                            // Remove current class from previous vertex
+                            if (bfsState.previousVertex) {
+                                const prevElement = document.querySelector(`.vertex[data-id="${bfsState.previousVertex}"]`);
+                                if (prevElement) prevElement.classList.remove('current');
+                            }
+                            
+                            bfsState.previousVertex = currentVertex;
+                        }
+                        
+                        // Check if we've reached the target
+                        if (currentVertex === algoState.tempRemovedEdge.v2) {
+                            bfsState.found = true;
+                            updateStatus(`Found path from ${getVertexLabel(algoState.tempRemovedEdge.v1)} to ${getVertexLabel(algoState.tempRemovedEdge.v2)} without using the edge.`);
+                            algoState.step = 'bfs-complete';
+                            scheduleNextStep();
+                            return;
+                        }
+                        
+                        // Add neighbors to queue
+                        for (const neighbor of state.adjacencyList[currentVertex]) {
+                            if (!bfsState.visited.has(neighbor)) {
+                                bfsState.visited.add(neighbor);
+                                bfsState.queue.push(neighbor);
+                                
+                                // Highlight the edge being traversed
+                                const edgeId = [currentVertex, neighbor].sort((a, b) => a - b).join('-');
+                                const edgeElement = document.querySelector(`.edge[data-id="${edgeId}"]`);
+                                if (edgeElement) {
+                                    edgeElement.classList.add('highlighted');
+                                    setTimeout(() => edgeElement.classList.remove('highlighted'), state.animationSpeed / 2);
+                                }
+                            }
+                        }
+                        
+                        updateStatus(`BFS visiting ${getVertexLabel(currentVertex)}...`);
+                        scheduleNextStep();
+                        break;
+                        
+                    case 'bfs-complete':
+                        // Just continue processing to empty the queue
+                        algoState.step = 'bfs';
+                        scheduleNextStep();
+                        break;
+                }
+            }
+            
+            function runTarjanAlgorithmStep() {
+                const algoState = state.algorithmState;
+                
+                switch (algoState.step) {
+                    case 'init':
+                        // Initialize data structures
+                        algoState.time = 0;
+                        algoState.discovery = {};
+                        algoState.low = {};
+                        algoState.parent = {};
+                        algoState.bridges = [];
+                        algoState.visited = new Set();
+                        
+                        // Start DFS from the first vertex
+                        const startVertex = state.vertices[0].id;
+                        algoState.dfsStack = [{ vertex: startVertex, step: 'visit', neighbors: [...state.adjacencyList[startVertex]] }];
+                        algoState.currentVertex = startVertex;
+                        
+                        updateStatus('Initializing Tarjan\'s algorithm. Starting DFS...');
+                        algoState.step = 'dfs';
+                        scheduleNextStep();
+                        break;
+                        
+                    case 'dfs':
+                        if (algoState.dfsStack.length === 0) {
+                            // DFS complete
+                            algoState.step = 'complete';
+                            updateStatus(`Algorithm complete. Found ${algoState.bridges.length} bridge(s): ${algoState.bridges.map(e => `${getVertexLabel(e.v1)}-${getVertexLabel(e.v2)}`).join(', ')}`);
+                            
+                            // Highlight all bridges
+                            algoState.bridges.forEach(bridge => {
+                                const edgeElement = document.querySelector(`.edge[data-id="${bridge.id}"]`);
+                                if (edgeElement) {
+                                    edgeElement.classList.add('bridge');
+                                }
+                            });
+                            
+                            state.isRunning = false;
+                            startBtn.classList.remove('hidden');
+                            pauseBtn.classList.add('hidden');
+                            return;
+                        }
+                        
+                        const currentFrame = algoState.dfsStack[algoState.dfsStack.length - 1];
+                        const currentVertex = currentFrame.vertex;
+                        
+                        // Highlight current vertex
+                        document.querySelectorAll('.vertex').forEach(v => v.classList.remove('current'));
+                        const vertexElement = document.querySelector(`.vertex[data-id="${currentVertex}"]`);
+                        if (vertexElement) {
+                            vertexElement.classList.add('current');
+                        }
+                        
+                        if (currentFrame.step === 'visit') {
+                            // First visit to this vertex
+                            if (!algoState.visited.has(currentVertex)) {
+                                algoState.visited.add(currentVertex);
+                                algoState.discovery[currentVertex] = ++algoState.time;
+                                algoState.low[currentVertex] = algoState.discovery[currentVertex];
+                                
+                                updateStatus(`Visiting vertex ${getVertexLabel(currentVertex)} (discovery time: ${algoState.discovery[currentVertex]})`);
+                                vertexElement.classList.add('visited');
+                                
+                                // Move to processing neighbors
+                                currentFrame.step = 'process-neighbors';
+                                scheduleNextStep();
+                            } else {
+                                // Already visited, pop from stack
+                                algoState.dfsStack.pop();
+                                scheduleNextStep();
+                            }
+                        } else if (currentFrame.step === 'process-neighbors') {
+                            if (currentFrame.neighbors.length === 0) {
+                                // All neighbors processed, backtrack
+                                algoState.dfsStack.pop();
+                                
+                                // Update low value of parent
+                                if (algoState.dfsStack.length > 0) {
+                                    const parentFrame = algoState.dfsStack[algoState.dfsStack.length - 1];
+                                    const parentVertex = parentFrame.vertex;
+                                    
+                                    algoState.low[parentVertex] = Math.min(algoState.low[parentVertex], algoState.low[currentVertex]);
+                                    
+                                    // Check for bridge
+                                    if (algoState.low[currentVertex] > algoState.discovery[parentVertex]) {
+                                        const bridge = findEdge(parentVertex, currentVertex);
+                                        if (bridge) {
+                                            algoState.bridges.push(bridge);
+                                            updateStatus(`Found bridge: ${getVertexLabel(bridge.v1)}-${getVertexLabel(bridge.v2)}`);
+                                            
+                                            // Temporarily highlight the bridge
+                                            const edgeElement = document.querySelector(`.edge[data-id="${bridge.id}"]`);
+                                            if (edgeElement) {
+                                                edgeElement.classList.add('highlighted');
+                                                setTimeout(() => edgeElement.classList.remove('highlighted'), state.animationSpeed);
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                updateStatus(`Finished processing vertex ${getVertexLabel(currentVertex)} (low value: ${algoState.low[currentVertex]})`);
+                                scheduleNextStep();
+                            } else {
+                                // Process next neighbor
+                                const neighbor = currentFrame.neighbors.shift();
+                                const edgeId = [currentVertex, neighbor].sort((a, b) => a - b).join('-');
+                                const edgeElement = document.querySelector(`.edge[data-id="${edgeId}"]`);
+                                
+                                // Highlight the edge being processed
+                                document.querySelectorAll('.edge').forEach(e => e.classList.remove('highlighted'));
+                                if (edgeElement) {
+                                    edgeElement.classList.add('highlighted');
+                                }
+                                
+                                if (!algoState.visited.has(neighbor)) {
+                                    // Tree edge
+                                    updateStatus(`Processing tree edge ${getVertexLabel(currentVertex)}-${getVertexLabel(neighbor)}`);
+                                    
+                                    algoState.parent[neighbor] = currentVertex;
+                                    algoState.dfsStack.push({ vertex: neighbor, step: 'visit', neighbors: [...state.adjacencyList[neighbor]] });
+                                    scheduleNextStep();
+                                } else if (neighbor !== algoState.parent[currentVertex]) {
+                                    // Back edge
+                                    updateStatus(`Processing back edge ${getVertexLabel(currentVertex)}-${getVertexLabel(neighbor)}`);
+                                    
+                                    algoState.low[currentVertex] = Math.min(algoState.low[currentVertex], algoState.discovery[neighbor]);
+                                    scheduleNextStep();
+                                } else {
+                                    // Parent edge, skip
+                                    scheduleNextStep();
+                                }
+                            }
+                        }
+                        break;
+                }
+            }
+            
+            function findEdge(v1, v2) {
+                return state.edges.find(edge => 
+                    (edge.v1 === v1 && edge.v2 === v2) || 
+                    (edge.v1 === v2 && edge.v2 === v1)
+                );
+            }
+            
+            function scheduleNextStep() {
+                if (state.isPaused) return;
+                
+                state.animationTimeout = setTimeout(() => {
+                    runAlgorithmStep();
+                }, state.animationSpeed);
+            }
+            
+            // Prevent default anchor behavior
+            document.querySelectorAll('a').forEach(anchor => {
+                anchor.addEventListener('click', e => e.preventDefault());
+            });
+        });
+    </script>
+</body>
+</html>
